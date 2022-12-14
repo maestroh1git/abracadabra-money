@@ -1,0 +1,55 @@
+async function main() {
+  const [signer] = await ethers.getSigners();
+
+  // impersonate account; replace with an address that actually has your token
+  const addressWithTokens = "0x46f80018211D5cBBc988e853A8683501FCA4ee9b";
+  await network.provider.send("hardhat_impersonateAccount", [
+    addressWithTokens,
+  ]);
+  const impersonatedSigner = await ethers.getSigner(addressWithTokens);
+  const cauldronAddress = "0x252dCf1B621Cc53bc22C256255d2bE5C8c32EaE4";
+  const shibTokenAddress = "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE";
+
+  // create the cauldron instance
+  const cauldron = await ethers.getContractAt(
+    "CauldronV2Flat",
+    cauldronAddress
+  );
+  const shibainu = await ethers.getContractAt(
+    "TokenMintERC20Token",
+    shibTokenAddress
+  );
+
+  // connect it to the impersonated signer and send it to your signer
+  await shibainu
+    .connect(impersonatedSigner)
+    .transfer(signer.address, "1000000000000");
+
+  console.log("success, ", cauldron);
+}
+// // Function which allows to convert any address to the signer which can sign transactions in a test
+// const impersonateAddress = async (address) => {
+//     const hre = require('hardhat');
+//     await hre.network.provider.request({
+//       method: 'hardhat_impersonateAccount',
+//       params: [address],
+//     });
+//     const signer = await ethers.provider.getSigner(address);
+//     signer.address = signer._address;
+//     return signer;
+//   };
+//   // Function to increase time in mainnet fork
+//   async function increaseTime(value) {
+//     if (!ethers.BigNumber.isBigNumber(value)) {
+//       value = ethers.BigNumber.from(value);
+//     }
+//     await ethers.provider.send('evm_increaseTime', [value.toNumber()]);
+//     await ethers.provider.send('evm_mine');
+//   }
+
+// main()
+//   .then(() => process.exit(0))
+//   .catch((error) => {
+//     console.error(error);
+//     process.exit(1);
+// })

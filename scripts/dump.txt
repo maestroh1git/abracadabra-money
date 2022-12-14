@@ -1,0 +1,126 @@
+
+
+async function main() {
+  //get my signer
+  const [signer] = await ethers.getSigners();
+  let actions = [24, 5, 21, 20, 10];
+  let values = [0, 0, 0, 0, 0];
+  let datas = [];
+  //expose functions from github link
+  // let datas = [
+  //   approvalEncode,
+  //   borrowEncode,
+  //   bentoWithdrawEncode,
+  //   depositEncode,
+  //   colateralEncode,
+  // ];
+
+  // impersonate account that actually has SHIB token
+  const addressWithTokens = "0x46f80018211D5cBBc988e853A8683501FCA4ee9b";
+  await network.provider.send("hardhat_impersonateAccount", [
+    addressWithTokens,
+  ]);
+  const impersonatedSigner = await ethers.getSigner(addressWithTokens);
+
+  const cauldronAddress = "0x252dCf1B621Cc53bc22C256255d2bE5C8c32EaE4";
+  // const shibTokenAddress = "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE";
+
+  // create the cauldron instance
+  const cauldron = await ethers.getContractAt(
+    "CauldronV2Flat",
+    cauldronAddress
+  );
+  const shibainu = await ethers.getContractAt(
+    "TokenMintERC20Token",
+    shibTokenAddress
+  );
+  // connect shibainu contract to the impersonated signer and send 1trilion tokens to my signer
+  // const tx = await shibainu
+  //   .connect(impersonatedSigner)
+  //   .transfer(signer.address, "1000000000000");
+  // const rece = await tx.wait();
+
+  console.log("address", signer.address);
+  console.log("masterContract", await cauldron.masterContract());
+  console.log("bentoBox", await cauldron.bentoBox());
+  // console.log("tokens", await cauldron.nonces(signer.address));
+
+  // console.log("encoded approval: \n", await getApprovalEncode())
+  datas.push(await getApprovalEncode())
+
+  console.log("datas[0]: ", datas[0])
+  
+  async function getApprovalEncode() {
+    const account = signer.address;
+    const verifyingContract = await cauldron.bentoBox();
+    const masterContract = await cauldron.masterContract();
+    const nonce = 1;
+    const chainId = 1;
+    const domain = {
+      name: "BentoBox V1",
+      chainId,
+      verifyingContract,
+    };
+    // The named list of all type definitions
+    const types = {
+      SetMasterContractApproval: [
+        { name: "warning", type: "string" },
+        { name: "user", type: "address" },
+        { name: "masterContract", type: "address" },
+        { name: "approved", type: "bool" },
+        { name: "nonce", type: "uint256" },
+      ],
+    };
+    // The data to sign
+    const value = {
+      warning: "Give FULL access to funds in (and approved to) BentoBox?",
+      user: account,
+      masterContract,
+      approved: true,
+      nonce,
+    };
+    let signature;
+    try {
+      signature = await signer._signTypedData(domain, types, value);
+      console.log("Here we have a signature: \n",signature);
+    } catch (e) {
+      console.log("SIG ERR:", e.code);
+      if (e.code === -32603) {
+        return "ledger";
+      }
+      return false;
+    }
+    const parsedSignature = parseSignature(signature);
+    console.log("parsed Signature: ", parsedSignature)
+    return ethers.utils.defaultAbiCoder.encode(
+      ["address", "address", "bool", "uint8", "bytes32", "bytes32"],
+      [
+        account,
+        masterContract,
+        true,
+        parsedSignature.v,
+        parsedSignature.r,
+        parsedSignature.s,
+      ]
+    );
+  }
+  function parseSignature(signature) {
+    const parsedSignature = signature.substring(2);
+    var r = parsedSignature.substring(0, 64);
+    var s = parsedSignature.substring(64, 128);
+    var v = parsedSignature.substring(128, 130);
+    return {
+      r: "0x" + r,
+      s: "0x" + s,
+      v: parseInt(v, 16),
+    };
+  }
+  //cauldron.cook()
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
